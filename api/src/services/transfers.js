@@ -57,6 +57,7 @@ export async function createTransfer(user, { quoteId, recipientId, purpose, purp
     purpose,
     purposeNote: purpose === 'other' ? purposeNote : null,
     currency: quote.currency,
+    sendCurrency: quote.sendCurrency,
     payoutCurrency: quote.payoutCurrency,
     country: quote.country,
     method: quote.method,

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { ApiError, notFound } from '../middleware/errors.js';
 import { corridors } from '../data/corridors.js';
+import { RATES, POPULAR, isCurrency } from '../data/currencies.js';
 import { store, id } from '../store.js';
 import { createQuote, getQuote } from '../services/quotes.js';
 import { createTransfer, getTransfer, cancelTransfer, publicTrack, applyProviderStatus, getProvider } from '../services/transfers.js';
@@ -16,12 +17,12 @@ const purposes = ['family_support', 'education', 'medical', 'gift', 'business', 
 
 // ---------- Public ----------
 r.get('/corridors', (_req, res) => {
-  res.json({ data: Object.entries(corridors).map(([code, c]) => ({ currency: code, country: c.country, name: c.name, methods: c.methods, usdPayoutMethods: c.usdPayout || [], banks: c.banks, wallets: c.wallets, limits: c.limits })) });
+  res.json({ data: Object.entries(corridors).map(([code, c]) => ({ currency: code, country: c.country, name: c.name, methods: c.methods, fxPayoutMethods: c.fxPayout || [], banks: c.banks, wallets: c.wallets, limits: c.limits })) });
 });
 
-r.get('/rates', (_req, res) => {
-  res.json({ base: 'USD', demo: true, data: Object.fromEntries(Object.entries(corridors).map(([k, c]) => [k, c.midRate])) });
-});
+// Every supported currency, units per 1 USD (demo values).
+r.get('/currencies', (_req, res) => res.json({ base: 'USD', demo: true, popular: POPULAR, data: RATES }));
+r.get('/rates', (_req, res) => res.json({ base: 'USD', demo: true, data: RATES }));
 
 r.get('/track/:code', (req, res) => res.json(publicTrack(req.params.code)));
 
@@ -99,8 +100,10 @@ const quoteSchema = z.object({
   currency,
   method,
   speed: z.enum(['express', 'economy']).default('express'),
-  // 'local' = destination currency (default), 'USD' = recipient gets US dollars.
-  payoutCurrency: z.enum(['local', 'USD']).default('local'),
+  // Currency the sender pays in (any supported code). Default USD.
+  sendCurrency: z.string().toUpperCase().refine(isCurrency, 'Unsupported currency').default('USD'),
+  // 'local' = destination's own currency (default), or any supported code (USD, EUR, GBP...).
+  payoutCurrency: z.string().refine((v) => v === 'local' || isCurrency(v.toUpperCase()), 'Unsupported currency').transform((v) => (v === 'local' ? v : v.toUpperCase())).default('local'),
   sendAmount: z.number().positive().optional(),
   receiveAmount: z.number().positive().optional()
 }).refine((v) => (v.sendAmount != null) !== (v.receiveAmount != null), { message: 'Provide exactly one of sendAmount or receiveAmount' });

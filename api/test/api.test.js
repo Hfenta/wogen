@@ -148,5 +148,36 @@ test('recipient can be paid in US dollars (no conversion, no markup)', async () 
   const tr = await request(app).get(`/v1/track/${t.body.trackingCode}`).expect(200);
   assert.equal(tr.body.currency, 'USD');
   const w = await request(app).post('/v1/quotes').set(auth).send({ currency: 'ETB', method: 'wallet', payoutCurrency: 'USD', sendAmount: 50 }).expect(400);
-  assert.equal(w.body.error.code, 'usd_payout_unavailable');
+  assert.equal(w.body.error.code, 'fx_payout_unavailable');
+});
+
+test('any send currency and any payout currency', async () => {
+  const { rec } = await setup();
+  // GBP sender, recipient in Ethiopia paid in EUR
+  const q = await request(app).post('/v1/quotes').set(auth).send({ currency: 'ETB', method: 'bank', sendCurrency: 'gbp', payoutCurrency: 'EUR', sendAmount: 100 }).expect(201);
+  assert.equal(q.body.sendCurrency, 'GBP');
+  assert.equal(q.body.payoutCurrency, 'EUR');
+  assert.ok(Math.abs(q.body.midRate - 0.86 / 0.76) < 0.001);
+  assert.ok(q.body.rate < q.body.midRate);
+  // fee converted into GBP: (399 + 100 FX fee) USD cents * 0.76
+  assert.equal(q.body.standardFeeCents, Math.round(499 * 0.76));
+  const t = await request(app).post('/v1/transfers').set(auth).send({ quoteId: q.body.id, recipientId: rec.id, purpose: 'gift' }).expect(201);
+  assert.equal(t.body.sendCurrency, 'GBP');
+  assert.equal(t.body.payoutCurrency, 'EUR');
+
+  // JPY -> ETB local, limit check is done in USD terms
+  const big = await request(app).post('/v1/quotes').set(auth).send({ currency: 'ETB', method: 'bank', sendCurrency: 'JPY', sendAmount: 1000000 }).expect(400);
+  assert.equal(big.body.error.code, 'amount_too_large');
+  const jp = await request(app).post('/v1/quotes').set(auth).send({ currency: 'ETB', method: 'bank', sendCurrency: 'JPY', sendAmount: 30000 }).expect(201);
+  assert.ok(jp.body.receiveAmount > 29000 && jp.body.receiveAmount < 30000);
+
+  // same currency on both sides: no conversion, no markup
+  const same = await request(app).post('/v1/quotes').set(auth).send({ currency: 'ETB', method: 'bank', sendCurrency: 'EUR', payoutCurrency: 'EUR', sendAmount: 50 }).expect(201);
+  assert.equal(same.body.rate, 1);
+  assert.equal(same.body.markupCostCents, 0);
+
+  const bad = await request(app).post('/v1/quotes').set(auth).send({ currency: 'ETB', method: 'bank', sendCurrency: 'XYZ', sendAmount: 50 }).expect(400);
+  assert.equal(bad.body.error.code, 'validation_error');
+  const cur = await request(app).get('/v1/currencies').expect(200);
+  assert.ok(Object.keys(cur.body.data).length >= 150);
 });
