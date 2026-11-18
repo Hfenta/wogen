@@ -9,3 +9,6 @@ https://hfenta.github.io/wogen
 
 ## Run it
 Open `index.html` in a browser, or view the GitHub Pages deployment.
+
+## Backend API
+The `api/` folder holds the Wogen backend (Node.js + Express): quotes with rate lock, recipients, transfers, tracking and payout-partner webhooks. See [api/README.md](api/README.md).
