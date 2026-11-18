@@ -1,4 +1,4 @@
-import { corridors, methodFees, markup, sendLimitsUsdCents } from '../data/corridors.js';
+import { corridors, methodFees, markup, sendLimitsUsdCents, usdPayoutFeeCents } from '../data/corridors.js';
 import { store, id } from '../store.js';
 import { config } from '../config.js';
 import { ApiError, notFound } from '../middleware/errors.js';
@@ -10,12 +10,17 @@ export function isFirstTransfer(userId) {
 }
 
 // Build a locked quote. Amounts in USD cents (send) and minor units of the receive currency.
-export function createQuote(userId, { currency, method, speed, sendAmount, receiveAmount }) {
+export function createQuote(userId, { currency, method, speed, sendAmount, receiveAmount, payoutCurrency = 'local' }) {
   const c = corridors[currency];
   if (!c) throw new ApiError(400, 'unsupported_corridor', `Sending to ${currency} is not supported`);
   if (!c.methods.includes(method)) throw new ApiError(400, 'unsupported_method', `${method} is not available for ${c.name}`, { available: c.methods });
 
-  const rate = round2(c.midRate * (1 - markup[speed]) * 10000) / 10000;
+  const usd = payoutCurrency === 'USD';
+  if (usd && !c.usdPayout?.includes(method)) {
+    throw new ApiError(400, 'usd_payout_unavailable', `US dollar payout is not available for ${method} in ${c.name}`, { available: c.usdPayout || [] });
+  }
+  const appliedMarkup = usd ? 0 : markup[speed];
+  const rate = usd ? 1 : round2(c.midRate * (1 - appliedMarkup) * 10000) / 10000;
   let sendCents;
   if (sendAmount != null) sendCents = Math.round(sendAmount * 100);
   else sendCents = Math.ceil((receiveAmount / rate) * 100);
@@ -25,9 +30,9 @@ export function createQuote(userId, { currency, method, speed, sendAmount, recei
 
   const receive = round2((sendCents / 100) * rate);
   const limit = c.limits?.[method];
-  if (limit && receive > limit) throw new ApiError(400, 'payout_limit', `Maximum for ${method} in ${c.name} is ${limit} ${currency}`);
+  if (!usd && limit && receive > limit) throw new ApiError(400, 'payout_limit', `Maximum for ${method} in ${c.name} is ${limit} ${currency}`);
 
-  const standardFee = methodFees[method][speed === 'express' ? 1 : 0];
+  const standardFee = methodFees[method][speed === 'express' ? 1 : 0] + (usd ? usdPayoutFeeCents : 0);
   const first = isFirstTransfer(userId);
   const feeCents = first ? 0 : standardFee;
   const now = Date.now();
@@ -37,12 +42,13 @@ export function createQuote(userId, { currency, method, speed, sendAmount, recei
     userId,
     currency,
     country: c.country,
+    payoutCurrency: usd ? 'USD' : currency,
     method,
     speed,
-    midRate: c.midRate,
+    midRate: usd ? 1 : c.midRate,
     rate,
-    markupPct: markup[speed] * 100,
-    markupCostCents: Math.round(sendCents * markup[speed]),
+    markupPct: appliedMarkup * 100,
+    markupCostCents: Math.round(sendCents * appliedMarkup),
     sendCents,
     feeCents,
     standardFeeCents: standardFee,

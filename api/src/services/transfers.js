@@ -28,7 +28,7 @@ function pushStatus(t, status, note) {
 
 const REQUIRED_SENDER = ['fullName', 'dateOfBirth', 'address', 'idDocument'];
 
-export async function createTransfer(user, { quoteId, recipientId, purpose }, idemKey) {
+export async function createTransfer(user, { quoteId, recipientId, purpose, purposeNote }, idemKey) {
   if (idemKey) {
     const prior = store.idem.get(`${user.id}:${idemKey}`);
     if (prior) return { transfer: store.get('transfers', prior), replayed: true };
@@ -55,7 +55,9 @@ export async function createTransfer(user, { quoteId, recipientId, purpose }, id
     recipientName: recipient.name,
     quoteId,
     purpose,
+    purposeNote: purpose === 'other' ? purposeNote : null,
     currency: quote.currency,
+    payoutCurrency: quote.payoutCurrency,
     country: quote.country,
     method: quote.method,
     speed: quote.speed,
@@ -117,5 +119,5 @@ export function publicTrack(trackingCode) {
   const t = store.findOne('transfers', (x) => x.trackingCode === trackingCode.toUpperCase());
   if (!t) throw notFound('Transfer');
   const first = t.recipientName.split(' ')[0];
-  return { trackingCode: t.trackingCode, recipient: first, receiveAmount: t.receiveAmount, currency: t.currency, method: t.method, status: t.status, timeline: t.timeline };
+  return { trackingCode: t.trackingCode, recipient: first, receiveAmount: t.receiveAmount, currency: t.payoutCurrency, method: t.method, status: t.status, timeline: t.timeline };
 }

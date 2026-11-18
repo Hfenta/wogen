@@ -12,11 +12,11 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
 
 const currency = z.enum(Object.keys(corridors));
 const method = z.enum(['bank', 'wallet', 'cash', 'home']);
-const purposes = ['family_support', 'education', 'medical', 'gift', 'business', 'savings'];
+const purposes = ['family_support', 'education', 'medical', 'gift', 'business', 'savings', 'other'];
 
 // ---------- Public ----------
 r.get('/corridors', (_req, res) => {
-  res.json({ data: Object.entries(corridors).map(([code, c]) => ({ currency: code, country: c.country, name: c.name, methods: c.methods, banks: c.banks, wallets: c.wallets, limits: c.limits })) });
+  res.json({ data: Object.entries(corridors).map(([code, c]) => ({ currency: code, country: c.country, name: c.name, methods: c.methods, usdPayoutMethods: c.usdPayout || [], banks: c.banks, wallets: c.wallets, limits: c.limits })) });
 });
 
 r.get('/rates', (_req, res) => {
@@ -99,6 +99,8 @@ const quoteSchema = z.object({
   currency,
   method,
   speed: z.enum(['express', 'economy']).default('express'),
+  // 'local' = destination currency (default), 'USD' = recipient gets US dollars.
+  payoutCurrency: z.enum(['local', 'USD']).default('local'),
   sendAmount: z.number().positive().optional(),
   receiveAmount: z.number().positive().optional()
 }).refine((v) => (v.sendAmount != null) !== (v.receiveAmount != null), { message: 'Provide exactly one of sendAmount or receiveAmount' });
@@ -106,7 +108,13 @@ const quoteSchema = z.object({
 r.post('/quotes', (req, res) => res.status(201).json(createQuote(req.user.id, quoteSchema.parse(req.body))));
 r.get('/quotes/:id', (req, res) => res.json(getQuote(req.user.id, req.params.id)));
 
-const transferSchema = z.object({ quoteId: z.string(), recipientId: z.string(), purpose: z.enum(purposes) });
+const transferSchema = z.object({
+  quoteId: z.string(),
+  recipientId: z.string(),
+  purpose: z.enum(purposes),
+  // Required when purpose is "other": the sender's own words (shown on the receipt, sent to the partner).
+  purposeNote: z.string().trim().min(3).max(140).optional()
+}).refine((v) => v.purpose !== 'other' || v.purposeNote, { path: ['purposeNote'], message: 'Write a reason when purpose is "other"' });
 
 r.post('/transfers', wrap(async (req, res) => {
   const { transfer, replayed } = await createTransfer(req.user, transferSchema.parse(req.body), req.get('idempotency-key'));

@@ -126,3 +126,27 @@ test('receiveAmount quotes work in reverse', async () => {
   const q = await request(app).post('/v1/quotes').set(auth).send({ currency: 'ETB', method: 'bank', receiveAmount: 15000 }).expect(201);
   assert.ok(q.body.receiveAmount >= 15000);
 });
+
+test('purpose "other" needs the sender\'s own reason', async () => {
+  const { rec, quote } = await setup();
+  const bad = await request(app).post('/v1/transfers').set(auth).send({ quoteId: quote.id, recipientId: rec.id, purpose: 'other' }).expect(400);
+  assert.equal(bad.body.error.code, 'validation_error');
+  const ok = await request(app).post('/v1/transfers').set(auth).send({ quoteId: quote.id, recipientId: rec.id, purpose: 'other', purposeNote: 'Help for Mom\'s new roof' }).expect(201);
+  assert.equal(ok.body.purposeNote, "Help for Mom's new roof");
+});
+
+test('recipient can be paid in US dollars (no conversion, no markup)', async () => {
+  const { rec } = await setup();
+  const q = await request(app).post('/v1/quotes').set(auth).send({ currency: 'ETB', method: 'bank', payoutCurrency: 'USD', sendAmount: 300 }).expect(201);
+  assert.equal(q.body.payoutCurrency, 'USD');
+  assert.equal(q.body.rate, 1);
+  assert.equal(q.body.receiveAmount, 300);
+  assert.equal(q.body.markupCostCents, 0);
+  assert.equal(q.body.standardFeeCents, 399 + 100);
+  const t = await request(app).post('/v1/transfers').set(auth).send({ quoteId: q.body.id, recipientId: rec.id, purpose: 'family_support' }).expect(201);
+  assert.equal(t.body.payoutCurrency, 'USD');
+  const tr = await request(app).get(`/v1/track/${t.body.trackingCode}`).expect(200);
+  assert.equal(tr.body.currency, 'USD');
+  const w = await request(app).post('/v1/quotes').set(auth).send({ currency: 'ETB', method: 'wallet', payoutCurrency: 'USD', sendAmount: 50 }).expect(400);
+  assert.equal(w.body.error.code, 'usd_payout_unavailable');
+});

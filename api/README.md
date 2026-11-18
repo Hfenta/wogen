@@ -31,7 +31,7 @@ curl -H "Authorization: Bearer dev-token-hailey" http://localhost:4000/v1/me
 | GET / PATCH | `/v1/me` | ✓ | Sender profile and the ID details partners require |
 | GET / POST | `/v1/recipients` | ✓ | Saved recipients (account numbers masked) |
 | DELETE | `/v1/recipients/:id` | ✓ | Remove a recipient |
-| POST | `/v1/quotes` | ✓ | Locked quote with `sendAmount` **or** `receiveAmount` |
+| POST | `/v1/quotes` | ✓ | Locked quote with `sendAmount` **or** `receiveAmount`. Add `"payoutCurrency":"USD"` to pay the recipient in US dollars |
 | GET | `/v1/quotes/:id` | ✓ | Quote, including `expired` |
 | POST | `/v1/transfers` | ✓ | Send money (pass an `Idempotency-Key` header) |
 | GET | `/v1/transfers` / `/v1/transfers/:id` | ✓ | History and the full status timeline |

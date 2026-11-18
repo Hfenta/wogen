@@ -42,9 +42,10 @@ export function createRafikiProvider() {
       const body = {
         external_id: transfer.id,
         amount: transfer.receiveAmount.toFixed(2),
-        currency: transfer.currency,
+        currency: transfer.payoutCurrency, // ETB, or USD when the recipient is paid in dollars
         country: transfer.country,
-        purpose: transfer.purpose,
+        purpose: transfer.purpose, // map to Rafiki's allowed purpose codes; send purposeNote as a remark if supported
+        ...(transfer.purposeNote ? { metadata: { purpose_note: transfer.purposeNote } } : {}),
         payment_account: accountType === 'BANK_ACCOUNT'
           ? { type: accountType, bank_id: recipient.bankId, account_number: recipient.accountNumber, name: recipient.name }
           : { type: accountType, operator: recipient.walletProvider?.toUpperCase(), phone_number: recipient.phone, name: recipient.name },
