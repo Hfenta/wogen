@@ -91,11 +91,12 @@ input.txt,select.txt{width:100%;background:var(--card2);border:1px solid var(--l
   <section class="screen" id="send">
     <button class="back" onclick="go('home')">‹ Back</button>
     <h2>How much?</h2>
+    <div class="mute small" style="margin-bottom:6px">Sending to</div>
+    <select class="txt" id="country" style="font-weight:600" onchange="S.cur=this.value;renderMethods();calc()"></select>
     <div class="mute small" style="margin-bottom:6px">You send</div>
     <div class="amt"><input id="amt" type="number" inputmode="decimal" value="200" oninput="calc()"><select disabled><option>USD</option></select></div>
     <div class="mute small" style="margin:12px 0 6px" id="recvLbl">They receive</div>
-    <div class="amt"><input id="recv" type="number" inputmode="decimal" oninput="reverse()"><select id="cur" onchange="S.cur=this.value;renderMethods();calc()"></select></div>
-    <div class="row" style="margin-top:10px"><span class="mute small">Receive money as</span><div class="chips" id="payCur"></div></div>
+    <div class="amt"><input id="recv" type="number" inputmode="decimal" oninput="reverse()"><select id="cur" onchange="setPay(this.value==='USD')"></select></div>
     <div class="mute small" id="usdNote" style="display:none;margin-top:6px">💵 They get US dollars, with no currency conversion and no exchange-rate markup.</div>
 
     <h3>Delivery method</h3>
@@ -247,9 +248,10 @@ function pick(i){const r=recips[i];S.cur=r.c;S.method=r.m;S.pre=r;go('send')}
 function newR(){S.pre=null;go('send')}
 
 function setPay(usd){S.payUSD=usd;renderMethods();calc()}
-function renderMethods(){fillCur($('cur'));const c=C[S.cur];const usdOK=USDM[S.cur].length>0;if(!usdOK)S.payUSD=false;
+function renderMethods(){const c=C[S.cur];const usdOK=USDM[S.cur].length>0;if(!usdOK)S.payUSD=false;
  const ms=S.payUSD?c.m.filter(k=>USDM[S.cur].includes(k)):c.m;if(!ms.includes(S.method))S.method=ms[0];
- $('payCur').innerHTML=`<button class="chip ${!S.payUSD?'on':''}" onclick="setPay(false)">${c.f} ${S.cur}</button>`+(usdOK?`<button class="chip ${S.payUSD?'on':''}" onclick="setPay(true)">🇺🇸 USD</button>`:'');
+ $('country').innerHTML=Object.entries(C).map(([k,v])=>`<option value="${k}" ${k===S.cur?'selected':''}>${v.n}</option>`).join('');
+ $('cur').innerHTML=`<option value="${S.cur}" ${!S.payUSD?'selected':''}>${S.cur}</option>`+(usdOK?`<option value="USD" ${S.payUSD?'selected':''}>USD</option>`:'');
  $('usdNote').style.display=S.payUSD?'block':'none';
  $('recvLbl').innerHTML=S.payUSD?'They receive <b style="color:var(--text)">US dollars</b> in '+c.n:'They receive';
  $('methods').innerHTML=ms.map(k=>`<div class="opt ${k===S.method?'on':''}" onclick="S.method='${k}';renderMethods();calc()"><div class="ico">${M[k].i}</div><div class="grow"><div class="b">${M[k].t}</div><div class="mute small">${M[k].d}${k==='wallet'&&c.wallets.length?' · '+c.wallets.join(', '):''}</div></div><span class="mute small">$${(M[k].fee[S.speed==='express'?1:0]+(S.payUSD?USD_FEE:0)).toFixed(2)}</span></div>`).join('')}
