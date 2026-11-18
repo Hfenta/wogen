@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { ApiError, notFound } from '../middleware/errors.js';
-import { corridors } from '../data/corridors.js';
+import { corridors, resolveCorridor } from '../data/corridors.js';
 import { RATES, POPULAR, isCurrency } from '../data/currencies.js';
 import { store, id } from '../store.js';
 import { createQuote, getQuote } from '../services/quotes.js';
@@ -11,13 +11,18 @@ import { createTransfer, getTransfer, cancelTransfer, publicTrack, applyProvider
 const r = Router();
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-const currency = z.enum(Object.keys(corridors));
+// Destination: `country` (ISO code, preferred) or legacy `currency` (e.g. ETB). Resolved by resolveCorridor.
+const destination = {
+  country: z.string().length(2).toUpperCase().optional(),
+  currency: z.string().length(3).toUpperCase().optional()
+};
+const hasDestination = [(v) => v.country || v.currency, { path: ['country'], message: 'Provide country (ISO code)' }];
 const method = z.enum(['bank', 'wallet', 'cash', 'home']);
 const purposes = ['family_support', 'education', 'medical', 'gift', 'business', 'savings', 'other'];
 
 // ---------- Public ----------
 r.get('/corridors', (_req, res) => {
-  res.json({ data: Object.entries(corridors).map(([code, c]) => ({ currency: code, country: c.country, name: c.name, methods: c.methods, fxPayoutMethods: c.fxPayout || [], banks: c.banks, wallets: c.wallets, limits: c.limits })) });
+  res.json({ data: Object.values(corridors).map((c) => ({ country: c.country, name: c.name, currency: c.currency, available: c.available, methods: c.methods, fxPayoutMethods: c.fxPayout, banks: c.banks, wallets: c.wallets, limits: c.limits })) });
 });
 
 // Every supported currency, units per 1 USD (demo values).
@@ -65,7 +70,7 @@ r.patch('/me', (req, res) => {
 const recipientSchema = z.object({
   name: z.string().min(3),
   phone: z.string().min(7),
-  currency,
+  ...destination,
   method,
   bankName: z.string().optional(),
   bankId: z.string().optional(),
@@ -73,9 +78,7 @@ const recipientSchema = z.object({
   walletProvider: z.string().optional(),
   address: z.string().optional(),
   relationship: z.string().optional()
-}).superRefine((v, ctx) => {
-  const c = corridors[v.currency];
-  if (!c.methods.includes(v.method)) ctx.addIssue({ code: 'custom', path: ['method'], message: `${v.method} not available for ${c.name}` });
+}).refine(...hasDestination).superRefine((v, ctx) => {
   if (v.method === 'bank' && !v.accountNumber) ctx.addIssue({ code: 'custom', path: ['accountNumber'], message: 'Required for bank deposit' });
   if (v.method === 'wallet' && !v.walletProvider) ctx.addIssue({ code: 'custom', path: ['walletProvider'], message: 'Required for mobile wallet' });
   if (v.method === 'home' && !v.address) ctx.addIssue({ code: 'custom', path: ['address'], message: 'Required for home delivery' });
@@ -86,7 +89,9 @@ const maskRecipient = (x) => ({ ...x, accountNumber: x.accountNumber ? '••�
 r.get('/recipients', (req, res) => res.json({ data: store.list('recipients', (x) => x.userId === req.user.id).map(maskRecipient) }));
 r.post('/recipients', (req, res) => {
   const body = recipientSchema.parse(req.body);
-  const rec = store.put('recipients', { id: id('rc'), userId: req.user.id, ...body, createdAt: new Date().toISOString() });
+  const c = resolveCorridor(body);
+  if (!c.methods.includes(body.method)) throw new ApiError(400, 'unsupported_method', `${body.method} is not available for ${c.name}`, { available: c.methods });
+  const rec = store.put('recipients', { id: id('rc'), userId: req.user.id, ...body, country: c.country, currency: c.currency, createdAt: new Date().toISOString() });
   res.status(201).json(maskRecipient(rec));
 });
 r.delete('/recipients/:id', (req, res) => {
@@ -97,7 +102,7 @@ r.delete('/recipients/:id', (req, res) => {
 });
 
 const quoteSchema = z.object({
-  currency,
+  ...destination,
   method,
   speed: z.enum(['express', 'economy']).default('express'),
   // Currency the sender pays in (any supported code). Default USD.
@@ -106,7 +111,7 @@ const quoteSchema = z.object({
   payoutCurrency: z.string().refine((v) => v === 'local' || isCurrency(v.toUpperCase()), 'Unsupported currency').transform((v) => (v === 'local' ? v : v.toUpperCase())).default('local'),
   sendAmount: z.number().positive().optional(),
   receiveAmount: z.number().positive().optional()
-}).refine((v) => (v.sendAmount != null) !== (v.receiveAmount != null), { message: 'Provide exactly one of sendAmount or receiveAmount' });
+}).refine(...hasDestination).refine((v) => (v.sendAmount != null) !== (v.receiveAmount != null), { message: 'Provide exactly one of sendAmount or receiveAmount' });
 
 r.post('/quotes', (req, res) => res.status(201).json(createQuote(req.user.id, quoteSchema.parse(req.body))));
 r.get('/quotes/:id', (req, res) => res.json(getQuote(req.user.id, req.params.id)));

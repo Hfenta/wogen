@@ -16,7 +16,8 @@ export const RATES = {
   MDL: 17, PLN: 3.65, CZK: 20.9, HUF: 335, RON: 4.37, BGN: 1.68, RSD: 101, MKD: 53, ALL: 83, BAM: 1.68,
   ISK: 123, SEK: 9.5, NOK: 10.1, DKK: 6.4, GEL: 2.7, AMD: 385, AZN: 1.7, KZT: 520, UZS: 12000, KGS: 87.4,
   TJS: 9.3, TMT: 3.5, MNT: 3600, THB: 32.5, MYR: 4.2, IDR: 16500, PHP: 58.4, VND: 26300, KHR: 4020, LAK: 21700,
-  MMK: 2100, BND: 1.3, MOP: 8, FJD: 2.27, PGK: 4.2, WST: 2.75, TOP: 2.38, VUV: 120, SBD: 8.3, XPF: 103
+  MMK: 2100, BND: 1.3, MOP: 8, FJD: 2.27, PGK: 4.2, WST: 2.75, TOP: 2.38, VUV: 120, SBD: 8.3, XPF: 103,
+  XCG: 1.79, KPW: 900
 };
 
 // Shown first in pickers.

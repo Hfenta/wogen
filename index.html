@@ -68,7 +68,7 @@ input.txt,select.txt{width:100%;background:var(--card2);border:1px solid var(--l
   <section class="screen on" id="home">
     <div class="card hero">
       <div class="mute">Today's rate</div>
-      <div class="row"><div class="big" id="heroRate">—</div><select class="amt" id="heroCur" style="padding:6px;border:0" onchange="S.cur=this.value;renderHome()"></select></div>
+      <div class="row"><div class="big" id="heroRate">—</div><select class="amt" id="heroCur" style="padding:6px;border:0" onfocus="expand(this)" onmousedown="expand(this)" onblur="compact(this)" onchange="setCountry(this.value);renderHome()"></select></div>
       <svg class="spark" id="spark" viewBox="0 0 300 40" preserveAspectRatio="none"></svg>
       <div class="row small"><span class="mute">7-day trend</span><span id="trend"></span></div>
     </div>
@@ -94,7 +94,7 @@ input.txt,select.txt{width:100%;background:var(--card2);border:1px solid var(--l
     <button class="back" onclick="go('home')">‹ Back</button>
     <h2>How much?</h2>
     <div class="mute small" style="margin-bottom:6px">Sending to</div>
-    <select class="txt" id="country" style="font-weight:600" onchange="S.cur=this.value;S.recvCur=this.value;renderMethods();calc()"></select>
+    <select class="txt" id="country" style="font-weight:600" onchange="setCountry(this.value);renderMethods();calc()"></select>
     <div class="mute small" style="margin-bottom:6px">You send</div>
     <div class="amt"><input id="amt" type="number" inputmode="decimal" value="200" oninput="calc()"><select id="sendCur" onfocus="expand(this)" onmousedown="expand(this)" onblur="compact(this)" onchange="S.sendCur=this.value;renderMethods();calc()"></select></div>
     <div class="mute small" style="margin:12px 0 6px" id="recvLbl">They receive</div>
@@ -203,23 +203,49 @@ input.txt,select.txt{width:100%;background:var(--card2);border:1px solid var(--l
 
 <script>
 // Demo data only — not live rates.
-const C={
- ETB:{n:'Ethiopia',f:'🇪🇹',mid:150.2,m:['bank','wallet','cash'],banks:['Commercial Bank of Ethiopia','Awash Bank','Dashen Bank','Bank of Abyssinia'],wallets:['telebirr','M-PESA Ethiopia','CBE Birr']},
- KES:{n:'Kenya',f:'🇰🇪',mid:129.1,m:['wallet','bank','cash'],banks:['Equity Bank','KCB'],wallets:['M-PESA','Airtel Money']},
- NGN:{n:'Nigeria',f:'🇳🇬',mid:1495,m:['bank','wallet','cash'],banks:['Access Bank','GTBank','Zenith'],wallets:['OPay','PalmPay']},
- GHS:{n:'Ghana',f:'🇬🇭',mid:12.4,m:['wallet','bank','cash'],banks:['GCB','Ecobank'],wallets:['MTN MoMo','Telecel Cash']},
- MXN:{n:'Mexico',f:'🇲🇽',mid:18.6,m:['bank','cash','home'],banks:['BBVA','Banorte'],wallets:[]},
- INR:{n:'India',f:'🇮🇳',mid:88.3,m:['bank','wallet'],banks:['SBI','HDFC','ICICI'],wallets:['UPI']},
- PHP:{n:'Philippines',f:'🇵🇭',mid:58.4,m:['wallet','bank','cash','home'],banks:['BDO','BPI'],wallets:['GCash','Maya']},
- EUR:{n:'Europe',f:'🇪🇺',mid:0.86,m:['bank'],banks:['Any SEPA bank (IBAN)'],wallets:[]}
+// Every country you can send to, as code:name:local currency. Keep in sync with api/src/data/countries.js.
+const COUNTRIES="AF:Afghanistan:AFN|AL:Albania:ALL|DZ:Algeria:DZD|AD:Andorra:EUR|AO:Angola:AOA|AG:Antigua and Barbuda:XCD|AR:Argentina:ARS|AM:Armenia:AMD|AW:Aruba:AWG|AU:Australia:AUD|AT:Austria:EUR|AZ:Azerbaijan:AZN|BS:Bahamas:BSD|BH:Bahrain:BHD|BD:Bangladesh:BDT|BB:Barbados:BBD|BY:Belarus:BYN|BE:Belgium:EUR|BZ:Belize:BZD|BJ:Benin:XOF|BM:Bermuda:BMD|BT:Bhutan:BTN|BO:Bolivia:BOB|BA:Bosnia and Herzegovina:BAM|BW:Botswana:BWP|BR:Brazil:BRL|BN:Brunei:BND|BG:Bulgaria:EUR|BF:Burkina Faso:XOF|BI:Burundi:BIF|CV:Cabo Verde:CVE|KH:Cambodia:KHR|CM:Cameroon:XAF|CA:Canada:CAD|KY:Cayman Islands:KYD|CF:Central African Republic:XAF|TD:Chad:XAF|CL:Chile:CLP|CN:China:CNY|CO:Colombia:COP|KM:Comoros:KMF|CG:Congo:XAF|CD:Congo (DRC):CDF|CR:Costa Rica:CRC|CI:Côte d'Ivoire:XOF|HR:Croatia:EUR|CU:Cuba:CUP|CW:Curaçao:XCG|CY:Cyprus:EUR|CZ:Czechia:CZK|DK:Denmark:DKK|DJ:Djibouti:DJF|DM:Dominica:XCD|DO:Dominican Republic:DOP|EC:Ecuador:USD|EG:Egypt:EGP|SV:El Salvador:USD|GQ:Equatorial Guinea:XAF|ER:Eritrea:ERN|EE:Estonia:EUR|SZ:Eswatini:SZL|ET:Ethiopia:ETB|FJ:Fiji:FJD|FI:Finland:EUR|FR:France:EUR|PF:French Polynesia:XPF|GA:Gabon:XAF|GM:Gambia:GMD|GE:Georgia:GEL|DE:Germany:EUR|GH:Ghana:GHS|GR:Greece:EUR|GL:Greenland:DKK|GD:Grenada:XCD|GT:Guatemala:GTQ|GN:Guinea:GNF|GW:Guinea-Bissau:XOF|GY:Guyana:GYD|HT:Haiti:HTG|HN:Honduras:HNL|HK:Hong Kong:HKD|HU:Hungary:HUF|IS:Iceland:ISK|IN:India:INR|ID:Indonesia:IDR|IR:Iran:IRR|IQ:Iraq:IQD|IE:Ireland:EUR|IL:Israel:ILS|IT:Italy:EUR|JM:Jamaica:JMD|JP:Japan:JPY|JO:Jordan:JOD|KZ:Kazakhstan:KZT|KE:Kenya:KES|KI:Kiribati:AUD|XK:Kosovo:EUR|KW:Kuwait:KWD|KG:Kyrgyzstan:KGS|LA:Laos:LAK|LV:Latvia:EUR|LB:Lebanon:LBP|LS:Lesotho:LSL|LR:Liberia:LRD|LY:Libya:LYD|LI:Liechtenstein:CHF|LT:Lithuania:EUR|LU:Luxembourg:EUR|MO:Macao:MOP|MG:Madagascar:MGA|MW:Malawi:MWK|MY:Malaysia:MYR|MV:Maldives:MVR|ML:Mali:XOF|MT:Malta:EUR|MH:Marshall Islands:USD|MR:Mauritania:MRU|MU:Mauritius:MUR|MX:Mexico:MXN|FM:Micronesia:USD|MD:Moldova:MDL|MC:Monaco:EUR|MN:Mongolia:MNT|ME:Montenegro:EUR|MA:Morocco:MAD|MZ:Mozambique:MZN|MM:Myanmar:MMK|NA:Namibia:NAD|NR:Nauru:AUD|NP:Nepal:NPR|NL:Netherlands:EUR|NC:New Caledonia:XPF|NZ:New Zealand:NZD|NI:Nicaragua:NIO|NE:Niger:XOF|NG:Nigeria:NGN|KP:North Korea:KPW|MK:North Macedonia:MKD|NO:Norway:NOK|OM:Oman:OMR|PK:Pakistan:PKR|PW:Palau:USD|PS:Palestine:ILS|PA:Panama:USD|PG:Papua New Guinea:PGK|PY:Paraguay:PYG|PE:Peru:PEN|PH:Philippines:PHP|PL:Poland:PLN|PT:Portugal:EUR|PR:Puerto Rico:USD|QA:Qatar:QAR|RO:Romania:RON|RU:Russia:RUB|RW:Rwanda:RWF|KN:Saint Kitts and Nevis:XCD|LC:Saint Lucia:XCD|VC:Saint Vincent and the Grenadines:XCD|WS:Samoa:WST|SM:San Marino:EUR|ST:São Tomé and Príncipe:STN|SA:Saudi Arabia:SAR|SN:Senegal:XOF|RS:Serbia:RSD|SC:Seychelles:SCR|SL:Sierra Leone:SLE|SG:Singapore:SGD|SX:Sint Maarten:XCG|SK:Slovakia:EUR|SI:Slovenia:EUR|SB:Solomon Islands:SBD|SO:Somalia:SOS|ZA:South Africa:ZAR|KR:South Korea:KRW|SS:South Sudan:SSP|ES:Spain:EUR|LK:Sri Lanka:LKR|SD:Sudan:SDG|SR:Suriname:SRD|SE:Sweden:SEK|CH:Switzerland:CHF|SY:Syria:SYP|TW:Taiwan:TWD|TJ:Tajikistan:TJS|TZ:Tanzania:TZS|TH:Thailand:THB|TL:Timor-Leste:USD|TG:Togo:XOF|TO:Tonga:TOP|TT:Trinidad and Tobago:TTD|TN:Tunisia:TND|TR:Türkiye:TRY|TM:Turkmenistan:TMT|TV:Tuvalu:AUD|UG:Uganda:UGX|UA:Ukraine:UAH|AE:United Arab Emirates:AED|GB:United Kingdom:GBP|US:United States:USD|UY:Uruguay:UYU|UZ:Uzbekistan:UZS|VU:Vanuatu:VUV|VA:Vatican City:EUR|VE:Venezuela:VES|VN:Vietnam:VND|YE:Yemen:YER|ZM:Zambia:ZMW|ZW:Zimbabwe:ZWG";
+const RESTRICTED=['CU','IR','KP']; // listed but not sendable (US sanctions)
+const SEPA=['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IS','IE','IT','LV','LI','LT','LU','MT','MC','NL','NO','PL','PT','RO','SM','SK','SI','ES','SE','CH','GB','AD','VA','AL','MD','ME','MK','RS'];
+// Payout details we know (m: methods, fx: methods that can pay in another currency). Others get a plain bank deposit.
+const DETAILS={
+ ET:{m:['bank','wallet','cash'],banks:['Commercial Bank of Ethiopia','Awash Bank','Dashen Bank','Bank of Abyssinia'],wallets:['telebirr','M-PESA Ethiopia','CBE Birr'],fx:['bank','cash']},
+ KE:{m:['wallet','bank','cash'],banks:['Equity Bank','KCB'],wallets:['M-PESA','Airtel Money'],fx:['bank','cash']},
+ NG:{m:['bank','wallet','cash'],banks:['Access Bank','GTBank','Zenith'],wallets:['OPay','PalmPay'],fx:['bank','cash']},
+ GH:{m:['wallet','bank','cash'],banks:['GCB','Ecobank'],wallets:['MTN MoMo','Telecel Cash'],fx:['bank','cash']},
+ MX:{m:['bank','cash','home'],banks:['BBVA','Banorte'],fx:['bank','cash']},
+ IN:{m:['bank','wallet'],banks:['SBI','HDFC','ICICI'],wallets:['UPI'],fx:['bank']},
+ PH:{m:['wallet','bank','cash','home'],banks:['BDO','BPI'],wallets:['GCash','Maya'],fx:['bank','cash']},
+ PK:{m:['bank','wallet','cash'],banks:['HBL','MCB','UBL','Meezan Bank'],wallets:['JazzCash','Easypaisa'],fx:['bank']},
+ BD:{m:['wallet','bank','cash'],banks:['Sonali Bank','Dutch-Bangla Bank','BRAC Bank'],wallets:['bKash','Nagad'],fx:['bank']},
+ NP:{m:['bank','wallet','cash'],banks:['Nabil Bank','NIC Asia'],wallets:['eSewa','Khalti'],fx:['bank']},
+ VN:{m:['bank','wallet','cash'],banks:['Vietcombank','BIDV'],wallets:['MoMo'],fx:['bank']},
+ EG:{m:['bank','wallet','cash'],banks:['National Bank of Egypt','Banque Misr'],wallets:['Vodafone Cash'],fx:['bank']},
+ UG:{m:['wallet','bank','cash'],banks:['Stanbic','Centenary Bank'],wallets:['MTN MoMo','Airtel Money'],fx:['bank']},
+ TZ:{m:['wallet','bank','cash'],banks:['CRDB','NMB'],wallets:['M-Pesa','Airtel Money'],fx:['bank']},
+ SO:{m:['wallet','cash'],banks:[],wallets:['EVC Plus','Zaad'],fx:['cash']},
+ CO:{m:['bank','wallet','cash'],banks:['Bancolombia','Davivienda'],wallets:['Nequi'],fx:['bank']},
+ GT:{m:['bank','cash','home'],banks:['Banrural','Banco Industrial'],fx:['bank','cash']},
+ HN:{m:['bank','cash'],banks:['Banco Atlántida','BAC'],fx:['bank','cash']},
+ SV:{m:['bank','cash'],banks:['Banco Agrícola','Banco Cuscatlán'],fx:[]},
+ DO:{m:['bank','cash','home'],banks:['Banreservas','Banco Popular'],fx:['bank','cash']}
 };
+const flag=cc=>String.fromCodePoint(...[...cc].map(ch=>127397+ch.charCodeAt(0)));
+const C=Object.fromEntries(COUNTRIES.split('|').map(s=>{const[k,n,cur]=s.split(':'),d=DETAILS[k]||{};
+ return[k,{n,cur,f:flag(k),ok:!RESTRICTED.includes(k),m:d.m||['bank'],banks:d.banks||[SEPA.includes(k)?'Any bank (IBAN)':'Any local bank'],wallets:d.wallets||[],fx:d.fx||(cur==='EUR'?[]:['bank'])}]}));
+const POPULAR_C=['ET','KE','NG','GH','MX','IN','PH','PK','BD','EG','GT','DO','CO','VN','GB','FR','DE','CA'];
+const BY_NAME=Object.keys(C).sort((a,b)=>C[a].n.localeCompare(C[b].n));
+function setCountry(cc){S.cc=cc;S.cur=C[cc].cur;S.recvCur=S.cur}
+// Country picker: popular first, then every country A–Z. Sanctioned ones are shown but disabled.
+function countryOptions(short){const o=(k,sel)=>{const c=C[k];return `<option value="${k}" ${sel?'selected':''} ${c.ok?'':'disabled'} data-full="${c.f} ${c.n} · ${c.cur}${c.ok?'':' — not available'}"${short?` data-short="${c.f} ${c.cur}"`:''}>${c.f} ${c.n} · ${c.cur}${c.ok?'':' — not available'}</option>`};
+ return `<optgroup label="Popular">${POPULAR_C.map(k=>o(k,k===S.cc)).join('')}</optgroup><optgroup label="All countries">${BY_NAME.map(k=>o(k,k===S.cc&&!POPULAR_C.includes(k))).join('')}</optgroup>`}
 const M={bank:{i:'🏦',t:'Bank deposit',d:'Straight into their account',fee:[1.99,3.99]},
  wallet:{i:'📲',t:'Mobile wallet',d:'Lands in their phone wallet',fee:[0.99,2.49]},
  cash:{i:'💵',t:'Cash pickup',d:'Thousands of agent locations',fee:[2.99,4.99]},
  home:{i:'🛵',t:'Home delivery',d:'Cash brought to their door',fee:[5.99,5.99]}};
-const S={cur:'ETB',method:'bank',speed:'express',first:true,sent:[],sendCur:'USD',recvCur:'ETB'};
+const S={cc:'ET',cur:'ETB',method:'bank',speed:'express',first:true,sent:[],sendCur:'USD',recvCur:'ETB'};
 // Units per 1 USD for every supported currency (DEMO rates - production uses live partner rates).
-const RATES={ USD: 1, EUR: 0.86, GBP: 0.76, CAD: 1.4, AUD: 1.53, NZD: 1.74, CHF: 0.8, JPY: 152, CNY: 7.12, HKD: 7.78, SGD: 1.3, KRW: 1400, TWD: 30.5, INR: 88.3, PKR: 281, BDT: 122, LKR: 300, NPR: 141, BTN: 88.3, MVR: 15.4, AFN: 66, IRR: 42000, IQD: 1310, SYP: 13000, LBP: 89500, JOD: 0.709, ILS: 3.3, TRY: 42, AED: 3.6725, SAR: 3.75, QAR: 3.64, KWD: 0.306, BHD: 0.376, OMR: 0.385, YER: 239, EGP: 47.5, LYD: 5.45, TND: 2.95, DZD: 130, MAD: 9.2, MRU: 40, SDG: 600, SSP: 4500, ETB: 150.2, ERN: 15, DJF: 177.7, SOS: 571, KES: 129.1, UGX: 3500, TZS: 2450, RWF: 1450, BIF: 2950, CDF: 2800, AOA: 915, ZMW: 23, MWK: 1740, MZN: 63.9, ZWG: 26.8, ZAR: 17.4, NAD: 17.4, BWP: 13.6, LSL: 17.4, SZL: 17.4, MGA: 4500, MUR: 46, SCR: 14, KMF: 423, NGN: 1495, GHS: 12.4, XOF: 565, XAF: 565, GMD: 72, GNF: 8680, SLE: 23, LRD: 180, CVE: 95, STN: 21, MXN: 18.6, GTQ: 7.67, HNL: 26.2, NIO: 36.8, CRC: 503, PAB: 1, BZD: 2, DOP: 63, HTG: 131, JMD: 160, TTD: 6.78, BBD: 2, BSD: 1, XCD: 2.7, KYD: 0.83, AWG: 1.79, ANG: 1.79, BMD: 1, CUP: 24, COP: 3900, VES: 200, PEN: 3.4, CLP: 940, ARS: 1450, BOB: 6.91, PYG: 7100, UYU: 40, BRL: 5.4, GYD: 209, SRD: 38, RUB: 81, UAH: 41.6, BYN: 3, MDL: 17, PLN: 3.65, CZK: 20.9, HUF: 335, RON: 4.37, BGN: 1.68, RSD: 101, MKD: 53, ALL: 83, BAM: 1.68, ISK: 123, SEK: 9.5, NOK: 10.1, DKK: 6.4, GEL: 2.7, AMD: 385, AZN: 1.7, KZT: 520, UZS: 12000, KGS: 87.4, TJS: 9.3, TMT: 3.5, MNT: 3600, THB: 32.5, MYR: 4.2, IDR: 16500, PHP: 58.4, VND: 26300, KHR: 4020, LAK: 21700, MMK: 2100, BND: 1.3, MOP: 8, FJD: 2.27, PGK: 4.2, WST: 2.75, TOP: 2.38, VUV: 120, SBD: 8.3, XPF: 103 };
+const RATES={ USD: 1, EUR: 0.86, GBP: 0.76, CAD: 1.4, AUD: 1.53, NZD: 1.74, CHF: 0.8, JPY: 152, CNY: 7.12, HKD: 7.78, SGD: 1.3, KRW: 1400, TWD: 30.5, INR: 88.3, PKR: 281, BDT: 122, LKR: 300, NPR: 141, BTN: 88.3, MVR: 15.4, AFN: 66, IRR: 42000, IQD: 1310, SYP: 13000, LBP: 89500, JOD: 0.709, ILS: 3.3, TRY: 42, AED: 3.6725, SAR: 3.75, QAR: 3.64, KWD: 0.306, BHD: 0.376, OMR: 0.385, YER: 239, EGP: 47.5, LYD: 5.45, TND: 2.95, DZD: 130, MAD: 9.2, MRU: 40, SDG: 600, SSP: 4500, ETB: 150.2, ERN: 15, DJF: 177.7, SOS: 571, KES: 129.1, UGX: 3500, TZS: 2450, RWF: 1450, BIF: 2950, CDF: 2800, AOA: 915, ZMW: 23, MWK: 1740, MZN: 63.9, ZWG: 26.8, ZAR: 17.4, NAD: 17.4, BWP: 13.6, LSL: 17.4, SZL: 17.4, MGA: 4500, MUR: 46, SCR: 14, KMF: 423, NGN: 1495, GHS: 12.4, XOF: 565, XAF: 565, GMD: 72, GNF: 8680, SLE: 23, LRD: 180, CVE: 95, STN: 21, MXN: 18.6, GTQ: 7.67, HNL: 26.2, NIO: 36.8, CRC: 503, PAB: 1, BZD: 2, DOP: 63, HTG: 131, JMD: 160, TTD: 6.78, BBD: 2, BSD: 1, XCD: 2.7, KYD: 0.83, AWG: 1.79, ANG: 1.79, BMD: 1, CUP: 24, COP: 3900, VES: 200, PEN: 3.4, CLP: 940, ARS: 1450, BOB: 6.91, PYG: 7100, UYU: 40, BRL: 5.4, GYD: 209, SRD: 38, RUB: 81, UAH: 41.6, BYN: 3, MDL: 17, PLN: 3.65, CZK: 20.9, HUF: 335, RON: 4.37, BGN: 1.68, RSD: 101, MKD: 53, ALL: 83, BAM: 1.68, ISK: 123, SEK: 9.5, NOK: 10.1, DKK: 6.4, GEL: 2.7, AMD: 385, AZN: 1.7, KZT: 520, UZS: 12000, KGS: 87.4, TJS: 9.3, TMT: 3.5, MNT: 3600, THB: 32.5, MYR: 4.2, IDR: 16500, PHP: 58.4, VND: 26300, KHR: 4020, LAK: 21700, MMK: 2100, BND: 1.3, MOP: 8, FJD: 2.27, PGK: 4.2, WST: 2.75, TOP: 2.38, VUV: 120, SBD: 8.3, XPF: 103, XCG: 1.79, KPW: 900 };
 const POPULAR=['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'ETB', 'KES', 'NGN', 'GHS', 'INR', 'PHP', 'MXN', 'AED', 'SAR', 'CNY'];
 const curName=(()=>{let d;try{d=new Intl.DisplayNames(['en'],{type:'currency'})}catch(e){}return c=>{try{return d?d.of(c):c}catch(e){return c}}})();
 const ALL_CUR=Object.keys(RATES).sort((a,b)=>curName(a).localeCompare(curName(b)));
@@ -232,10 +258,10 @@ const toSend=usd=>usd*RATES[S.sendCur]; // convert a USD fee into the sender's c
 const stdFee=()=>toSend(M[S.method].fee[S.speed==='express'?1:0]+(foreign()?FX_FEE:0));
 const money=(v,c)=>{try{return new Intl.NumberFormat('en-US',{style:'currency',currency:c,currencyDisplay:'symbol'}).format(v)}catch(e){return v.toFixed(2)+' '+c}};
 // Closed pickers show just the code (e.g. "JPY"); the open list shows full names.
-function compact(sel){[...sel.options].forEach(o=>o.textContent=o.dataset.full||o.textContent);const o=sel.selectedOptions[0];if(o)o.textContent=sel.value}
+function compact(sel){[...sel.options].forEach(o=>o.textContent=o.dataset.full||o.textContent);const o=sel.selectedOptions[0];if(o)o.textContent=o.dataset.short||sel.value}
 function expand(sel){[...sel.options].forEach(o=>{if(o.dataset.full)o.textContent=o.dataset.full})}
 function curOptions(sel){return `<optgroup label="Popular">${POPULAR.map(c=>`<option value="${c}" data-full="${c} · ${curName(c)}" ${c===sel?'selected':''}>${c} · ${curName(c)}</option>`).join('')}</optgroup><optgroup label="All currencies">${ALL_CUR.map(c=>`<option value="${c}" data-full="${c} · ${curName(c)}" ${c===sel&&!POPULAR.includes(c)?'selected':''}>${c} · ${curName(c)}</option>`).join('')}</optgroup>`}
-const recips=[{n:'Abeba T.',c:'ETB',m:'bank'},{n:'Dawit F.',c:'ETB',m:'wallet'},{n:'Mekdes',c:'ETB',m:'cash'},{n:'Juan R.',c:'MXN',m:'bank'},{n:'Amina',c:'KES',m:'wallet'}];
+const recips=[{n:'Abeba T.',cc:'ET',m:'bank'},{n:'Dawit F.',cc:'ET',m:'wallet'},{n:'Mekdes',cc:'ET',m:'cash'},{n:'Juan R.',cc:'MX',m:'bank'},{n:'Amina',cc:'KE',m:'wallet'}];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const markup=sp=>sp==='express'?0.012:0.006; // 1.2% vs 0.6%
@@ -249,25 +275,25 @@ function go(t){document.querySelectorAll('.screen').forEach(s=>s.classList.toggl
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._);t._=setTimeout(()=>t.style.display='none',2000)}
 function toggle(el,msg){el.classList.toggle('on');if(el.classList.contains('on'))toast(msg)}
 
-function fillCur(sel){sel.innerHTML=Object.entries(C).map(([k,v])=>`<option value="${k}" ${k===S.cur?'selected':''}>${v.f} ${k}</option>`).join('')}
-function renderHome(){fillCur($('heroCur'));const c=C[S.cur];$('heroRate').textContent='1 USD = '+c.mid+' '+S.cur;
- const pts=[...Array(7)].map((_,i)=>c.mid*(1-0.015+i*0.0025+(Math.sin(i*1.7)*0.002)));
+function renderHome(){const h=$('heroCur');h.innerHTML=countryOptions(true);compact(h);const c=C[S.cc],mid=RATES[c.cur];$('heroRate').textContent='1 USD = '+mid+' '+c.cur;
+ const pts=[...Array(7)].map((_,i)=>mid*(1-0.015+i*0.0025+(Math.sin(i*1.7)*0.002)));
  const mn=Math.min(...pts),mx=Math.max(...pts);
  $('spark').innerHTML=`<polyline fill="none" stroke="#2fd39a" stroke-width="2.5" points="${pts.map((p,i)=>`${i*50},${36-(p-mn)/(mx-mn)*32}`).join(' ')}"/>`;
  const ch=((pts[6]-pts[0])/pts[0]*100).toFixed(1);$('trend').innerHTML=`<span style="color:var(--accent)">▲ ${ch}% — good week to send</span>`;
  $('people').innerHTML=peopleHTML();}
-function peopleHTML(){return `<div class="person" onclick="newR()"><div class="avatar" style="background:#103a2c;color:var(--accent)">+</div>New</div>`+recips.map((r,i)=>`<div class="person" onclick="pick(${i})"><div class="avatar">${r.n[0]}</div>${r.n.split(' ')[0]}<div class="mute" style="font-size:10px">${C[r.c].f} ${M[r.m].t.split(' ')[0]}</div></div>`).join('')}
-function pick(i){const r=recips[i];S.cur=r.c;S.recvCur=r.c;S.method=r.m;S.pre=r;go('send')}
+function peopleHTML(){return `<div class="person" onclick="newR()"><div class="avatar" style="background:#103a2c;color:var(--accent)">+</div>New</div>`+recips.map((r,i)=>`<div class="person" onclick="pick(${i})"><div class="avatar">${r.n[0]}</div>${r.n.split(' ')[0]}<div class="mute" style="font-size:10px">${C[r.cc].f} ${M[r.m].t.split(' ')[0]}</div></div>`).join('')}
+function pick(i){const r=recips[i];setCountry(r.cc);S.method=r.m;S.pre=r;go('send')}
 function newR(){S.pre=null;go('send')}
 
-function renderMethods(){const c=C[S.cur];
- const ms=foreign()?c.m.filter(k=>k==='bank'||k==='cash'):c.m;if(!ms.includes(S.method))S.method=ms[0];
- $('country').innerHTML=Object.entries(C).map(([k,v])=>`<option value="${k}" ${k===S.cur?'selected':''}>${v.n}</option>`).join('');
+function renderMethods(){const c=C[S.cc];
+ if(foreign()&&!c.m.some(k=>c.fx.includes(k))){S.recvCur=S.cur;toast(`${c.n} can only be paid in ${S.cur}`)}
+ const ms=foreign()?c.m.filter(k=>c.fx.includes(k)):c.m;if(!ms.includes(S.method))S.method=ms[0];
+ $('country').innerHTML=countryOptions();
  $('sendCur').innerHTML=curOptions(S.sendCur);
  $('cur').innerHTML=`<optgroup label="${c.n} local currency"><option value="${S.cur}" data-full="${S.cur} · ${curName(S.cur)}" ${S.recvCur===S.cur?'selected':''}>${S.cur} · ${curName(S.cur)}</option></optgroup>`+curOptions(S.recvCur===S.cur?null:S.recvCur);
  compact($('sendCur'));compact($('cur'));
  const note=[];if(sameCur())note.push(`💵 Same currency on both sides: no conversion and no exchange-rate markup.`);
- if(foreign())note.push(`🌍 Paid out in ${curName(S.recvCur)} instead of ${S.cur}. Bank deposit or cash pickup only.`);
+ if(foreign())note.push(`🌍 Paid out in ${curName(S.recvCur)} instead of ${S.cur}. ${ms.map(k=>M[k].t).join(' or ')} only.`);
  $('fxNote').innerHTML=note.join('<br>');$('fxNote').style.display=note.length?'block':'none';
  $('recvLbl').innerHTML=foreign()?'They receive <b style="color:var(--text)">'+esc(curName(S.recvCur))+'</b> in '+c.n:'They receive';
  $('methods').innerHTML=ms.map(k=>`<div class="opt ${k===S.method?'on':''}" onclick="S.method='${k}';renderMethods();calc()"><div class="ico">${M[k].i}</div><div class="grow"><div class="b">${M[k].t}</div><div class="mute small">${M[k].d}${k==='wallet'&&c.wallets.length?' · '+c.wallets.join(', '):''}</div></div><span class="mute small">${money(toSend(M[k].fee[S.speed==='express'?1:0]+(foreign()?FX_FEE:0)),S.sendCur)}</span></div>`).join('')}
@@ -281,13 +307,13 @@ function lines(){const a=+$('amt').value||0,f=fee();
  $('lMark').textContent=sameCur()?'None':(mk()*100).toFixed(1)+'% (≈'+money(a*mk(),S.sendCur)+')';
  $('lTotal').textContent=money(a+f,S.sendCur);$('lEta').textContent=eta()}
 
-function renderRecipient(){const c=C[S.cur];let h='';
+function renderRecipient(){const c=C[S.cc];let h='';
  if(S.method==='bank')h=`<select class="txt" id="rBank">${c.banks.map(b=>`<option>${b}</option>`).join('')}</select><input class="txt" placeholder="Account number">`;
  if(S.method==='wallet')h=`<select class="txt">${c.wallets.map(b=>`<option>${b}</option>`).join('')}</select><div class="mute small" style="margin:-4px 0 10px">✓ We'll confirm the wallet owner's name before you pay</div>`;
  if(S.method==='cash')h=`<div class="card small"><b>Pickup:</b> they show ID + your tracking code at any partner agent in ${c.n}.</div>`;
  if(S.method==='home')h=`<input class="txt" placeholder="Delivery address">`;
  if(foreign())h+=`<div class="card small">🌍 <b>Paid in ${esc(curName(S.recvCur))} (${S.recvCur}).</b> ${S.method==='bank'?'The account must be able to hold '+S.recvCur+' (a foreign-currency / diaspora account).':'Pickup at partner agents that pay out '+S.recvCur+'. They bring ID and the tracking code.'}</div>`;
- $('rExtra').innerHTML=h;$('people2').innerHTML=recips.filter(r=>r.c===S.cur).map(r=>`<div class="person" onclick="$('rName').value='${r.n}'"><div class="avatar">${r.n[0]}</div>${r.n.split(' ')[0]}</div>`).join('');
+ $('rExtra').innerHTML=h;$('people2').innerHTML=recips.filter(r=>r.cc===S.cc).map(r=>`<div class="person" onclick="$('rName').value='${r.n}'"><div class="avatar">${r.n[0]}</div>${r.n.split(' ')[0]}</div>`).join('');
  if(S.pre)$('rName').value=S.pre.n}
 const _go=go;go=function(t){_go(t);if(t==='recipient')renderRecipient()}
 
@@ -295,8 +321,8 @@ let lockT;
 function review(){const n=$('rName').value.trim();if(!n){toast('Add the recipient\'s name');return}
  let reason=$('rReason').value;if(reason==='Other'){reason=$('rOther').value.trim();if(reason.length<3){toast('Please write your reason');$('rOther').focus();return}}
  S.reason=reason;
- const a=+$('amt').value,f=fee();S.cur_tx={n,a,f,recv:a*rate(),cur:pc(),sendCur:S.sendCur,country:S.cur,method:S.method,speed:S.speed,rate:rate()};
- $('rvRecv').textContent=fmt(S.cur_tx.recv,pc());$('rvTo').textContent=`to ${n} · ${C[S.cur].f} ${M[S.method].t} · ${eta()}`;
+ const a=+$('amt').value,f=fee();S.cur_tx={n,a,f,recv:a*rate(),cur:pc(),sendCur:S.sendCur,country:S.cc,method:S.method,speed:S.speed,rate:rate()};
+ $('rvRecv').textContent=fmt(S.cur_tx.recv,pc());$('rvTo').textContent=`to ${n} · ${C[S.cc].f} ${M[S.method].t} · ${eta()}`;
  $('rvLines').innerHTML=`<div class="line"><span class="mute">You send</span><span>${money(a,S.sendCur)}</span></div><div class="line"><span class="mute">Fee</span><span>${money(f,S.sendCur)}</span></div><div class="line"><span class="mute">Rate</span><span>${sameCur()?'No conversion':'1 '+S.sendCur+' = '+rate()+' '+S.recvCur}</span></div><div class="line"><span class="mute">Reason</span><span style="text-align:right;max-width:60%;overflow-wrap:anywhere">${esc(S.reason)}</span></div><div class="line"><span class="b">Total</span><span class="b">${money(a+f,S.sendCur)}</span></div>`;
  $('payWith').textContent=S.speed==='express'?'Debit card •••• 4417':'Bank account (ACH) •••• 0921';
  let s=1800;clearInterval(lockT);lockT=setInterval(()=>{s--;$('lock').textContent=String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},1000);go('review')}
@@ -311,7 +337,7 @@ function renderTrack(){const tx=S.active;
   $('tkTitle').textContent=fmt(tx.recv,tx.cur)+' → '+tx.n;$('tkCode').textContent=tx.code;
   $('tl').innerHTML=steps.map((s,i)=>`<div class="${i<tx.step?'done':i===tx.step?'now':''}">${s}${i<tx.step?'<div class="mute small">✓ '+new Date(tx.t.getTime()+i*60000).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+'</div>':''}</div>`).join('');
   $('tkNote').textContent=tx.step>=4?'Done. '+tx.n+' got an SMS confirmation.':'We\'ll notify you and '+tx.n+' at each step.'}
- $('history').innerHTML=(S.sent.length?S.sent:[]).map(t=>`<div class="card row" onclick="S.active=S.sent[${S.sent.indexOf(t)}];renderTrack()" style="cursor:pointer"><div class="avatar">${t.n[0]}</div><div class="grow"><div class="b">${t.n}</div><div class="mute small">${C[t.country].f} ${M[t.method].t}${t.cur!==t.country?" · "+t.cur:""} · ${t.code}</div></div><div style="text-align:right"><div class="b">${money(t.a,t.sendCur)}</div><div class="small" style="color:${t.step>=4?'var(--accent)':'var(--warn)'}">${t.step>=4?'Delivered':'In progress'}</div></div></div>`).join('')||'<div class="mute small">No transfers yet.</div>'}
+ $('history').innerHTML=(S.sent.length?S.sent:[]).map(t=>`<div class="card row" onclick="S.active=S.sent[${S.sent.indexOf(t)}];renderTrack()" style="cursor:pointer"><div class="avatar">${t.n[0]}</div><div class="grow"><div class="b">${t.n}</div><div class="mute small">${C[t.country].f} ${M[t.method].t}${t.cur!==C[t.country].cur?" · "+t.cur:""} · ${t.code}</div></div><div style="text-align:right"><div class="b">${money(t.a,t.sendCur)}</div><div class="small" style="color:${t.step>=4?'var(--accent)':'var(--warn)'}">${t.step>=4?'Delivered':'In progress'}</div></div></div>`).join('')||'<div class="mute small">No transfers yet.</div>'}
 function share(){const c=$('tkCode').textContent;try{navigator.clipboard.writeText(c).then(()=>toast('Code copied: '+c),()=>toast('Code: '+c))}catch(e){toast('Code: '+c)}}
 
 renderHome();

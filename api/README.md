@@ -10,7 +10,7 @@ The backend for the Wogen money transfer app. It handles rate quotes with a 30-m
 cd api
 npm install
 npm run dev        # http://localhost:4000
-npm test           # 10 end-to-end tests
+npm test           # 15 end-to-end tests
 ```
 
 Copy `.env.example` to `.env` to change settings. The default dev login token is `dev-token-hailey`:
@@ -24,7 +24,7 @@ curl -H "Authorization: Bearer dev-token-hailey" http://localhost:4000/v1/me
 | Method | Path | Auth | What it does |
 |---|---|---|---|
 | GET | `/health` | – | Service status |
-| GET | `/v1/corridors` | – | Countries, delivery methods, banks, wallets, limits |
+| GET | `/v1/corridors` | – | All 208 destination countries: ISO code, local currency, `available`, delivery methods, banks, wallets, limits |
 | GET | `/v1/currencies` | – | All ~150 supported currencies with demo rates per USD |
 | GET | `/v1/rates` | – | Same rates, as a plain map |
 | GET | `/v1/track/:code` | – | Public tracking for the recipient (no sender details) |
@@ -42,14 +42,16 @@ curl -H "Authorization: Bearer dev-token-hailey" http://localhost:4000/v1/me
 
 ```bash
 # 1. Quote (first transfer is free)
-POST /v1/quotes      {"currency":"ETB","method":"bank","speed":"express","sendAmount":200}
+POST /v1/quotes      {"country":"ET","method":"bank","speed":"express","sendAmount":200}
 # 2. Recipient
-POST /v1/recipients  {"name":"Abeba Tesfaye","phone":"+251911000000","currency":"ETB","method":"bank","bankName":"Commercial Bank of Ethiopia","accountNumber":"1000123456789"}
+POST /v1/recipients  {"name":"Abeba Tesfaye","phone":"+251911000000","country":"ET","method":"bank","bankName":"Commercial Bank of Ethiopia","accountNumber":"1000123456789"}
 # 3. Send
 POST /v1/transfers   {"quoteId":"qt_…","recipientId":"rc_…","purpose":"family_support"}   + header Idempotency-Key
 # 4. Track
 GET  /v1/track/WGXXXXXXXX
 ```
+
+Destinations are picked by `country` (ISO code). The older `currency` field still works when only one country uses that currency (`ETB`), but shared currencies (`EUR`, `XOF`, `USD`…) return `country_required`. Cuba, Iran and North Korea are listed with `available: false` and return `restricted_destination`.
 
 Transfer statuses: `created → funded → sent_to_partner → delivered` (or `ready_for_pickup` for cash), plus `failed` and `cancelled`.
 
@@ -59,7 +61,9 @@ Transfer statuses: `created → funded → sent_to_partner → delivered` (or `r
 src/
   app.js, server.js       Express app, security headers, JSON errors
   config.js               Settings from environment variables
-  data/corridors.js       Countries, methods, fees, markup, limits
+  data/countries.js       Every country, its currency, restricted and SEPA lists
+  data/corridors.js       Payout methods per country, fees, markup, limits
+  data/currencies.js      Demo rates for every currency
   store.js                In-memory database (swap for Firestore or Postgres)
   middleware/             Auth (dev tokens; swap for Firebase Auth) and errors
   services/quotes.js      Pricing, rate lock, first-transfer promotion

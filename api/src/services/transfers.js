@@ -40,8 +40,8 @@ export async function createTransfer(user, { quoteId, recipientId, purpose, purp
 
   const recipient = store.get('recipients', recipientId);
   if (!recipient || recipient.userId !== user.id) throw notFound('Recipient');
-  if (recipient.currency !== quote.currency || recipient.method !== quote.method) {
-    throw new ApiError(400, 'recipient_mismatch', 'Recipient payout details do not match the quote currency/method');
+  if (recipient.country !== quote.country || recipient.method !== quote.method) {
+    throw new ApiError(400, 'recipient_mismatch', 'Recipient payout details do not match the quote country/method');
   }
 
   const missing = REQUIRED_SENDER.filter((k) => !user[k]);

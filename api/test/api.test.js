@@ -35,6 +35,41 @@ test('health and corridors are public', async () => {
   assert.ok(c.body.data.find((x) => x.currency === 'ETB'));
 });
 
+test('every country is a destination with a supported currency', async () => {
+  const c = await request(app).get('/v1/corridors').expect(200);
+  const cur = await request(app).get('/v1/currencies').expect(200);
+  assert.ok(c.body.data.length >= 195);
+  for (const x of c.body.data) assert.ok(cur.body.data[x.currency], `${x.name} uses ${x.currency}, which has no rate`);
+  assert.equal(c.body.data.find((x) => x.country === 'SN').currency, 'XOF');
+  assert.equal(c.body.data.find((x) => x.country === 'IR').available, false);
+});
+
+test('quotes and recipients by country, including shared currencies', async () => {
+  await request(app).patch('/v1/me').set(auth).send(profile).expect(200);
+  const q = await request(app).post('/v1/quotes').set(auth).send({ country: 'fr', method: 'bank', sendAmount: 100 }).expect(201);
+  assert.equal(q.body.country, 'FR');
+  assert.equal(q.body.currency, 'EUR');
+  const sn = await request(app).post('/v1/quotes').set(auth).send({ country: 'SN', method: 'bank', sendAmount: 100 }).expect(201);
+  assert.equal(sn.body.currency, 'XOF');
+  const rec = await request(app).post('/v1/recipients').set(auth).send({ name: 'Awa Diop', phone: '+221770000000', country: 'SN', method: 'bank', accountNumber: 'SN0123456789' }).expect(201);
+  assert.equal(rec.body.currency, 'XOF');
+  await request(app).post('/v1/transfers').set(auth).send({ quoteId: sn.body.id, recipientId: rec.body.id, purpose: 'gift' }).expect(201);
+  // A recipient in France can't use a quote for Senegal.
+  const recFr = await request(app).post('/v1/recipients').set(auth).send({ name: 'Marie Dupont', phone: '+33600000000', country: 'FR', method: 'bank', accountNumber: 'FR7630006000011234567890189' }).expect(201);
+  const sn2 = await request(app).post('/v1/quotes').set(auth).send({ country: 'SN', method: 'bank', sendAmount: 100 }).expect(201);
+  const mm = await request(app).post('/v1/transfers').set(auth).send({ quoteId: sn2.body.id, recipientId: recFr.body.id, purpose: 'gift' }).expect(400);
+  assert.equal(mm.body.error.code, 'recipient_mismatch');
+
+  const shared = await request(app).post('/v1/quotes').set(auth).send({ currency: 'XOF', method: 'bank', sendAmount: 100 }).expect(400);
+  assert.equal(shared.body.error.code, 'country_required');
+  const blocked = await request(app).post('/v1/quotes').set(auth).send({ country: 'KP', method: 'bank', sendAmount: 100 }).expect(400);
+  assert.equal(blocked.body.error.code, 'restricted_destination');
+  const none = await request(app).post('/v1/quotes').set(auth).send({ country: 'ZZ', method: 'bank', sendAmount: 100 }).expect(400);
+  assert.equal(none.body.error.code, 'unsupported_corridor');
+  const missing = await request(app).post('/v1/quotes').set(auth).send({ method: 'bank', sendAmount: 100 }).expect(400);
+  assert.equal(missing.body.error.code, 'validation_error');
+});
+
 test('auth is required', async () => {
   await request(app).get('/v1/me').expect(401);
 });

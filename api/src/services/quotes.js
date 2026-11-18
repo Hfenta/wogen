@@ -1,4 +1,4 @@
-import { corridors, methodFees, markup, sendLimitsUsdCents, fxPayoutFeeUsdCents } from '../data/corridors.js';
+import { resolveCorridor, methodFees, markup, sendLimitsUsdCents, fxPayoutFeeUsdCents } from '../data/corridors.js';
 import { RATES, isCurrency, crossRate, convert } from '../data/currencies.js';
 import { store, id } from '../store.js';
 import { config } from '../config.js';
@@ -12,13 +12,13 @@ export function isFirstTransfer(userId) {
 }
 
 // Build a locked quote.
-// - currency: destination corridor (the recipient's country currency, e.g. ETB)
+// - country: destination ISO code (e.g. ET). Legacy clients may pass `currency` (e.g. ETB) instead.
 // - sendCurrency: what the sender pays in (any supported currency, default USD)
-// - payoutCurrency: 'local' (the corridor currency) or any supported currency code
+// - payoutCurrency: 'local' (the country's own currency) or any supported currency code
 // Money fields ending in "Cents" are in minor units (x100) of sendCurrency.
-export function createQuote(userId, { currency, method, speed, sendAmount, receiveAmount, sendCurrency = 'USD', payoutCurrency = 'local' }) {
-  const c = corridors[currency];
-  if (!c) throw new ApiError(400, 'unsupported_corridor', `Sending to ${currency} is not supported`);
+export function createQuote(userId, { country, currency: legacyCurrency, method, speed, sendAmount, receiveAmount, sendCurrency = 'USD', payoutCurrency = 'local' }) {
+  const c = resolveCorridor({ country, currency: legacyCurrency });
+  const currency = c.currency;
   if (!c.methods.includes(method)) throw new ApiError(400, 'unsupported_method', `${method} is not available for ${c.name}`, { available: c.methods });
 
   const payCur = payoutCurrency === 'local' ? currency : payoutCurrency;
